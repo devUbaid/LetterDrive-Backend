@@ -130,4 +130,27 @@ router.get("/letters", isAuthenticated, async (req, res) => {
   }
 })
 
+// Delete a letter from Google Drive
+router.delete("/drive/delete/:fileId", isAuthenticated, async (req, res) => {
+  try {
+    const { fileId } = req.params
+    const drive = getDriveClient(req.user)
+
+    await drive.files.delete({
+      fileId: fileId,
+    })
+
+    // Optionally unset driveFileId in DB if needed
+    await Letter.updateOne(
+      { driveFileId: fileId, user: req.user._id },
+      { $unset: { driveFileId: "", savedToDrive: "" } }
+    )
+
+    res.status(200).json({ message: "File deleted from Google Drive" })
+  } catch (error) {
+    console.error("Error deleting file from Drive:", error.message)
+    res.status(500).json({ message: "Failed to delete file from Google Drive" })
+  }
+})
+
 module.exports = router
