@@ -131,7 +131,7 @@ router.get("/letters", isAuthenticated, async (req, res) => {
 })
 
 // Delete a letter from Google Drive
-router.delete("/drive/delete/:fileId", isAuthenticated, async (req, res) => {
+router.delete("/delete/:fileId", isAuthenticated, async (req, res) => {
   try {
     const { fileId } = req.params
     const drive = getDriveClient(req.user)
