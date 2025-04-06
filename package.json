@@ -1,5 +1,5 @@
 {
-  "name": "letter-editor-server",
+  "name": "letter-drive-server",
   "version": "1.0.0",
   "description": "Backend for Letter Editor application",
   "main": "server.js",
