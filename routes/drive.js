@@ -3,13 +3,16 @@ const router = express.Router()
 const { google } = require("googleapis")
 const Letter = require("../models/Letter")
 const { isAuthenticated } = require("../middleware/auth")
+require("dotenv").config()
+
+const SERVER_URL = process.env.SERVER_URL || "http://localhost:5000"
 
 // Helper function to get Google Drive client
 const getDriveClient = (user) => {
   const oauth2Client = new google.auth.OAuth2(
     process.env.GOOGLE_CLIENT_ID,
     process.env.GOOGLE_CLIENT_SECRET,
-    "http://localhost:5000/api/auth/google/callback",
+    `${SERVER_URL}/api/auth/google/callback`
   )
 
   oauth2Client.setCredentials({
@@ -23,7 +26,6 @@ const getDriveClient = (user) => {
 // Save letter to Google Drive
 router.post("/save/:id", isAuthenticated, async (req, res) => {
   try {
-    // Find the letter
     const letter = await Letter.findOne({
       _id: req.params.id,
       user: req.user._id,
@@ -35,7 +37,6 @@ router.post("/save/:id", isAuthenticated, async (req, res) => {
 
     const drive = getDriveClient(req.user)
 
-    // Check if "Letters" folder exists, create if not
     let folderId
     const folderResponse = await drive.files.list({
       q: "name='Letters' and mimeType='application/vnd.google-apps.folder' and trashed=false",
@@ -45,7 +46,6 @@ router.post("/save/:id", isAuthenticated, async (req, res) => {
     if (folderResponse.data.files.length > 0) {
       folderId = folderResponse.data.files[0].id
     } else {
-      // Create the folder
       const folderMetadata = {
         name: "Letters",
         mimeType: "application/vnd.google-apps.folder",
@@ -59,7 +59,6 @@ router.post("/save/:id", isAuthenticated, async (req, res) => {
       folderId = folder.data.id
     }
 
-    // Prepare file metadata and content
     const fileMetadata = {
       name: letter.title || "Untitled Letter",
       mimeType: "application/vnd.google-apps.document",
@@ -74,26 +73,21 @@ router.post("/save/:id", isAuthenticated, async (req, res) => {
     let fileId
 
     if (letter.driveFileId) {
-      // Update existing file
       await drive.files.update({
         fileId: letter.driveFileId,
         resource: fileMetadata,
         media: media,
       })
-
       fileId = letter.driveFileId
     } else {
-      // Create new file
       const file = await drive.files.create({
         resource: fileMetadata,
         media: media,
         fields: "id",
       })
-
       fileId = file.data.id
     }
 
-    // Update letter in database
     letter.savedToDrive = true
     letter.driveFileId = fileId
     await letter.save()
@@ -113,7 +107,6 @@ router.get("/letters", isAuthenticated, async (req, res) => {
   try {
     const drive = getDriveClient(req.user)
 
-    // Find the Letters folder
     const folderResponse = await drive.files.list({
       q: "name='Letters' and mimeType='application/vnd.google-apps.folder' and trashed=false",
       fields: "files(id, name)",
@@ -125,7 +118,6 @@ router.get("/letters", isAuthenticated, async (req, res) => {
 
     const folderId = folderResponse.data.files[0].id
 
-    // Get all documents in the Letters folder
     const filesResponse = await drive.files.list({
       q: `'${folderId}' in parents and mimeType='application/vnd.google-apps.document' and trashed=false`,
       fields: "files(id, name, createdTime, modifiedTime)",
@@ -139,4 +131,3 @@ router.get("/letters", isAuthenticated, async (req, res) => {
 })
 
 module.exports = router
-
