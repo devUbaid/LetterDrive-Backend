@@ -4,8 +4,8 @@ const cors = require("cors")
 const passport = require("passport")
 const session = require("express-session")
 const MongoStore = require("connect-mongo")
-const { google } = require("googleapis")
 require("dotenv").config()
+
 // Import passport config
 require("./config/passport")
 
@@ -14,17 +14,16 @@ const authRoutes = require("./routes/auth")
 const letterRoutes = require("./routes/letters")
 const driveRoutes = require("./routes/drive")
 
-
 const app = express()
 const PORT = process.env.PORT || 5000
 
 // Middleware
 app.use(express.json())
 
-// Allow both production and localhost CORS
+// CORS Setup
 const allowedOrigins = [
   process.env.CLIENT_URL,
-  "http://localhost:3000",
+  "http://localhost:3000"
 ]
 
 app.use(
@@ -37,10 +36,12 @@ app.use(
       }
     },
     credentials: true,
-  }),
+  })
 )
 
-// Session configuration
+// Session Configuration
+app.set("trust proxy", 1) // Important for production (e.g. Render)
+
 app.use(
   session({
     secret: process.env.SESSION_SECRET || "your_session_secret",
@@ -51,37 +52,40 @@ app.use(
       collectionName: "sessions",
     }),
     cookie: {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production", // only over HTTPS in prod
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
       maxAge: 1000 * 60 * 60 * 24, // 1 day
     },
-  }),
+  })
 )
 
 // Initialize Passport
 app.use(passport.initialize())
 app.use(passport.session())
 
-// Connect to MongoDB
+// MongoDB Connection
 mongoose
   .connect(process.env.MONGODB_URI)
-  .then(() => console.log("Connected to MongoDB"))
-  .catch((err) => console.error("MongoDB connection error:", err))
+  .then(() => console.log("✅ Connected to MongoDB"))
+  .catch((err) => console.error("❌ MongoDB connection error:", err))
 
 // Routes
 app.use("/api/auth", authRoutes)
 app.use("/api/letters", letterRoutes)
 app.use("/api/drive", driveRoutes)
 
-// Health check route
+// Health Check
 app.get("/health", (req, res) => {
   res.status(200).json({ status: "ok", message: "Server is running" })
 })
 
-// Error handling middleware
+// Global Error Handler
 app.use((err, req, res, next) => {
   console.error(err.stack)
   res.status(500).json({ message: "Something went wrong!" })
 })
 
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`)
+  console.log(`🚀 Server running on port ${PORT}`)
 })

@@ -5,15 +5,16 @@ require("dotenv").config()
 
 const CLIENT_URL = process.env.CLIENT_URL || "http://localhost:3000"
 
-// Google OAuth login/signup route
+// 1️⃣ - Initiate Google OAuth login/signup
 router.get(
   "/google",
   passport.authenticate("google", {
     scope: ["profile", "email", "https://www.googleapis.com/auth/drive.file"],
-  }),
+    prompt: "select_account", // Always ask account
+  })
 )
 
-// Google OAuth callback route
+// 2️⃣ - Handle Google OAuth callback
 router.get(
   "/google/callback",
   passport.authenticate("google", {
@@ -21,17 +22,17 @@ router.get(
     session: true,
   }),
   (req, res) => {
-    const isNewUser = req.user.createdAt === req.user.updatedAt
+    const isNewUser = req.user.createdAt?.toString() === req.user.updatedAt?.toString()
 
     if (isNewUser) {
       res.redirect(`${CLIENT_URL}/dashboard?newUser=true`)
     } else {
       res.redirect(`${CLIENT_URL}/dashboard`)
     }
-  },
+  }
 )
 
-// Check if user is authenticated
+// 3️⃣ - Check login status
 router.get("/status", (req, res) => {
   if (req.isAuthenticated()) {
     return res.status(200).json({
@@ -47,7 +48,7 @@ router.get("/status", (req, res) => {
   return res.status(401).json({ isAuthenticated: false })
 })
 
-// Logout route
+// 4️⃣ - Logout route
 router.get("/logout", (req, res, next) => {
   req.logout((err) => {
     if (err) return next(err)
