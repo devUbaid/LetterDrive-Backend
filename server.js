@@ -6,10 +6,9 @@ const session = require("express-session")
 const MongoStore = require("connect-mongo")
 require("dotenv").config()
 
-// Import passport config
+// Passport config
 require("./config/passport")
 
-// Import routes
 const authRoutes = require("./routes/auth")
 const letterRoutes = require("./routes/letters")
 const driveRoutes = require("./routes/drive")
@@ -17,31 +16,22 @@ const driveRoutes = require("./routes/drive")
 const app = express()
 const PORT = process.env.PORT || 5000
 
-// Middleware
+// Trust proxy (important for secure cookies on Render)
+app.set("trust proxy", 1)
+
+// Body parser
 app.use(express.json())
 
-// CORS Setup
-const allowedOrigins = [
-  process.env.CLIENT_URL,
-  "http://localhost:3000"
-]
-
+// CORS Configuration
+const CLIENT_URL = process.env.CLIENT_URL || "https://letterdrive.vercel.app"
 app.use(
   cors({
-    origin: function (origin, callback) {
-      if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true)
-      } else {
-        callback(new Error("Not allowed by CORS"))
-      }
-    },
-    credentials: true,
+    origin: CLIENT_URL, // use exact origin string (not function or array)
+    credentials: true, //  required to send cookies
   })
 )
 
-// Session Configuration
-app.set("trust proxy", 1) // Important for production (e.g. Render)
-
+// Session Setup
 app.use(
   session({
     secret: process.env.SESSION_SECRET || "your_session_secret",
@@ -53,21 +43,21 @@ app.use(
     }),
     cookie: {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production", // only over HTTPS in prod
-      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+      secure: process.env.NODE_ENV === "production", // only send cookie over HTTPS
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax", // cross-site support
       maxAge: 1000 * 60 * 60 * 24, // 1 day
     },
   })
 )
 
-// Initialize Passport
+// Passport Middleware
 app.use(passport.initialize())
 app.use(passport.session())
 
 // MongoDB Connection
 mongoose
   .connect(process.env.MONGODB_URI)
-  .then(() => console.log("✅ Connected to MongoDB"))
+  .then(() => console.log(" Connected to MongoDB"))
   .catch((err) => console.error("❌ MongoDB connection error:", err))
 
 // Routes
@@ -80,12 +70,13 @@ app.get("/health", (req, res) => {
   res.status(200).json({ status: "ok", message: "Server is running" })
 })
 
-// Global Error Handler
+// Error Handler
 app.use((err, req, res, next) => {
   console.error(err.stack)
   res.status(500).json({ message: "Something went wrong!" })
 })
 
+// Start Server
 app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`)
+  console.log(` Server running on port ${PORT}`)
 })
